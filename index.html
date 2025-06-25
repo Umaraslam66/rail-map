@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swedish Railway Infrastructure</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        body.light-theme {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }        .light-theme .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(0, 0, 0, 0.15);
+            color: #2c3e50;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+            padding: 20px 10px;
+        }
+
+        .sidebar-header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #ffd700, #ff6b35);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sidebar-header p {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }        .control-group input, .control-group select {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .light-theme .control-group input, .light-theme .control-group select {
+            background: rgba(0, 0, 0, 0.05);
+            color: #333;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .control-group input:focus, .control-group select:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #ffd700;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .light-theme .control-group input:focus, .light-theme .control-group select:focus {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: #2a5298;
+            box-shadow: 0 0 20px rgba(42, 82, 152, 0.3);
+        }
+
+        .control-group select option {
+            background: #2a5298;
+            color: white;
+        }
+
+        .light-theme .control-group select option {
+            background: white;
+            color: #333;
+        }
+
+        #searchSuggestions {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .light-theme #searchSuggestions {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .suggestion-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .light-theme .suggestion-item {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }        .light-theme .suggestion-item:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* Searchable Select Styles */
+        .searchable-select {
+            position: relative;
+            z-index: 20;
+        }
+
+        .searchable-select select {
+            cursor: pointer;
+        }
+
+        .searchable-select input[type="text"] {
+            background: rgba(255,255,255,0.85);
+            color: #2c3e50;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.95rem;
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .searchable-select input[type="text"]::placeholder {
+            color: #7a869a;
+            opacity: 1;
+        }
+        .light-theme .searchable-select input[type="text"] {
+            background: #f5f7fa;
+            color: #2c3e50;
+            border: 1px solid #c3cfe2;
+        }
+        .light-theme .searchable-select input[type="text"]::placeholder {
+            color: #7a869a;
+        }
+        .owner-suggestions {
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+        .light-theme .owner-suggestions {
+            background: #fff;
+            color: #2c3e50;
+        }
+        .owner-suggestion-item {
+            color: #2c3e50;
+            background: transparent;
+        }
+        .owner-suggestion-item:hover, .owner-suggestion-item.highlighted {
+            background: #eaf6ff;
+            color: #1a237e;
+        }
+        .light-theme .owner-suggestion-item {
+            color: #2c3e50;
+        }
+        .light-theme .owner-suggestion-item:hover, .light-theme .owner-suggestion-item.highlighted {
+            background: #eaf6ff;
+            color: #1a237e;
+        }
+        /* Station search input improvements */
+        #stationSearch {
+            background: rgba(255,255,255,0.85);
+            color: #2c3e50;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.95rem;
+        }
+        #stationSearch::placeholder {
+            color: #7a869a;
+            opacity: 1;
+        }
+        .light-theme #stationSearch {
+            background: #f5f7fa;
+            color: #2c3e50;
+            border: 1px solid #c3cfe2;
+        }
+        .light-theme #stationSearch::placeholder {
+            color: #7a869a;
+        }
+        .stats-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .light-theme .stats-card {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .light-theme .stats-card:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .stats-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }        .stats-card .value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .light-theme .stats-card .value {
+            color: #2980b9;
+        }
+
+        .link-details {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .light-theme .link-details {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .link-details h3 {
+            margin-bottom: 15px;
+            color: #ffd700;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .light-theme .link-details h3 {
+            color: #2980b9;
+            border-bottom: 2px solid rgba(41, 128, 185, 0.3);
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            opacity: 0.9;
+            flex: 1;
+        }        .stats-card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+
+        .detail-value {
+            flex: 2;
+            text-align: right;
+            color: #ffd700;
+        }        .light-theme .detail-value {
+            color: #2980b9;
+        }
+
+        .filtered-sections {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .light-theme .filtered-sections {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .filtered-sections h3 {
+            margin-bottom: 15px;
+            color: #ffd700;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            padding-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .light-theme .filtered-sections h3 {
+            color: #2980b9;
+            border-bottom: 2px solid rgba(41, 128, 185, 0.3);
+        }
+
+        .section-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+            border-color: #ffd700;
+        }
+
+        .light-theme .section-item {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .light-theme .section-item:hover {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: #2980b9;
+        }
+
+        .section-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #ffd700;
+        }
+
+        .light-theme .section-name {
+            color: #2980b9;
+        }
+
+        .section-info {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .section-length {
+            color: #00ff88;
+            font-weight: 500;
+        }
+
+        .light-theme .section-length {
+            color: #27ae60;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .toggle-sidebar {
+            position: absolute;
+            top: 20px;
+            left: 370px;
+            z-index: 2000;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .toggle-sidebar:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom Leaflet styles */
+        .leaflet-popup-content-wrapper {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            color: white;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaflet-popup-content {
+            margin: 15px;
+            line-height: 1.4;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .popup-button {
+            background: linear-gradient(45deg, #ffd700, #ff6b35);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .popup-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+        }        .collapsed .sidebar-header h1,
+        .collapsed .sidebar-header p,
+        .collapsed .control-group,
+        .collapsed .stats-card,
+        .collapsed .link-details,
+        .collapsed .filtered-sections,
+        .collapsed .owner-suggestions {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: 40%;
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                transform: translateY(calc(100% - 60px));
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.expanded {
+                transform: translateY(0);
+            }
+
+            .map-container {
+                width: 100%;
+                height: 60%;
+            }
+
+            .toggle-sidebar {
+                left: 20px;
+                top: auto;
+                bottom: 80px;
+            }
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .theme-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .theme-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .theme-slider {
+            background-color: #ffd700;
+        }
+        input:checked + .theme-slider:before {
+            transform: translateX(26px);
+        }
+        .theme-switch .theme-slider {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .theme-switch input:focus + .theme-slider {
+            box-shadow: 0 0 1px #ffd700;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading Railway Data...</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1>Railway Infrastructure</h1>
+                <p>Swedish Rail Network</p>
+            </div>
+
+            <div class="control-group">
+                <label for="stationSearch">Search Stations</label>                <input type="text" id="stationSearch" placeholder="Type station name...">
+                <div id="searchSuggestions" style="max-height: 150px; overflow-y: auto; margin-top: 5px;"></div>
+            </div>            <div class="control-group">
+                <label for="ownerFilter">Infrastructure Owner</label>
+                <div class="searchable-select">
+                    <input type="text" id="ownerSearchInput" placeholder="Type to search owners..." style="display: none;">
+                    <select id="ownerFilter">
+                        <option value="all">All Owners</option>
+                    </select>
+                    <div class="search-toggle-btn" id="ownerSearchToggle" title="Toggle search mode">🔍</div>
+                    <div id="ownerSuggestions" class="owner-suggestions" style="display: none;"></div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Theme</label>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                    <span style="font-size: 0.9rem;">🌙</span>
+                    <label class="theme-switch">
+                        <input type="checkbox" id="themeToggle">
+                        <span class="theme-slider"></span>
+                    </label>
+                    <span style="font-size: 0.9rem;">☀️</span>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <h3>Total Stations</h3>
+                <div class="value" id="stationCount">-</div>
+            </div>
+
+            <div class="stats-card">
+                <h3>Filtered Links</h3>
+                <div class="value" id="filteredLinkCount">-</div>
+            </div>
+
+            <div class="stats-card">
+                <h3>Total Length</h3>
+                <div class="value" id="totalLength">-</div>
+            </div>            <div class="link-details" id="linkDetails" style="display: none;">
+                <h3>Link Details</h3>
+                <div id="linkDetailsContent"></div>
+            </div>
+
+            <div class="filtered-sections" id="filteredSections" style="display: none;">
+                <h3>Railway Sections</h3>
+                <div class="sections-list" id="sectionsList"></div>
+            </div>
+        </div>
+
+        <div class="toggle-sidebar" id="toggleSidebar">
+            <span id="toggleIcon">‹</span>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+
+    <script>        class RailwayApp {
+            constructor() {
+                this.map = null;
+                this.stationsData = [];
+                this.linksData = [];
+                this.filteredLinks = [];
+                this.stationMarkers = null;
+                this.linkLayers = [];
+                this.selectedLink = null;
+                this.isDarkTheme = true;
+                this.currentTileLayer = null;
+                this.owners = [];
+                this.isOwnerSearchMode = false;
+                this.selectedOwnerIndex = -1;
+                this.filteredOwners = [];
+                
+                this.init();
+            }
+
+            async init() {
+                this.initMap();
+                this.setupEventListeners();
+                await this.loadData();
+                this.updateStats();
+            }
+
+            initMap() {
+                this.map = L.map('map', {
+                    center: [62, 15],
+                    zoom: 5,
+                    zoomControl: false,
+                    attributionControl: false
+                });
+
+                this.setMapTheme();
+
+                // Add custom zoom control
+                L.control.zoom({
+                    position: 'bottomright'
+                }).addTo(this.map);
+
+                // Initialize marker cluster
+                this.stationMarkers = L.markerClusterGroup({
+                    chunkedLoading: true,
+                    maxClusterRadius: 50
+                });
+                this.map.addLayer(this.stationMarkers);
+            }
+
+            setMapTheme() {
+                if (this.currentTileLayer) {
+                    this.map.removeLayer(this.currentTileLayer);
+                }
+
+                if (this.isDarkTheme) {
+                    this.currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 20
+                    });
+                } else {
+                    this.currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                        maxZoom: 20
+                    });
+                }
+                
+                this.currentTileLayer.addTo(this.map);
+            }            setupEventListeners() {
+                // Owner filter
+                document.getElementById('ownerFilter').addEventListener('change', (e) => {
+                    this.filterLinks(e.target.value);
+                });
+
+                // Owner search toggle
+                document.getElementById('ownerSearchToggle').addEventListener('click', () => {
+                    this.toggleOwnerSearch();
+                });
+
+                // Owner search input
+                document.getElementById('ownerSearchInput').addEventListener('input', (e) => {
+                    this.searchOwners(e.target.value);
+                });
+
+                // Owner search keyboard navigation
+                document.getElementById('ownerSearchInput').addEventListener('keydown', (e) => {
+                    this.handleOwnerSearchKeydown(e);
+                });
+
+                // Station search
+                document.getElementById('stationSearch').addEventListener('input', (e) => {
+                    this.searchStations(e.target.value);
+                });
+
+                // Theme toggle
+                document.getElementById('themeToggle').addEventListener('change', (e) => {
+                    this.toggleTheme(e.target.checked);
+                });
+
+                // Sidebar toggle
+                document.getElementById('toggleSidebar').addEventListener('click', () => {
+                    this.toggleSidebar();
+                });
+
+                // Click outside to close suggestions
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#stationSearch') && !e.target.closest('#searchSuggestions')) {
+                        document.getElementById('searchSuggestions').innerHTML = '';
+                    }
+                    if (!e.target.closest('.searchable-select')) {
+                        document.getElementById('ownerSuggestions').style.display = 'none';
+                        this.selectedOwnerIndex = -1;
+                    }
+                });
+
+                // Mobile responsive
+                if (window.innerWidth <= 768) {
+                    document.getElementById('sidebar').addEventListener('click', () => {
+                        document.getElementById('sidebar').classList.toggle('expanded');
+                    });
+                }
+            }
+
+            async loadData() {
+                try {
+                    // Initialize SQL.js
+                    const SQL = await initSqlJs({
+                        locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+                    });
+
+                    // Show loading spinner
+                    document.querySelector('.loading-text').textContent = 'Loading railway.db from server...';
+
+                    // Fetch the database file from the server
+                    const response = await fetch('railway.db');
+                    if (!response.ok) throw new Error('Failed to fetch railway.db');
+                    const arrayBuffer = await response.arrayBuffer();
+                    const dbData = new Uint8Array(arrayBuffer);
+                    await this.processDatabaseData(SQL, dbData);
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                    document.querySelector('.loading-text').textContent = 'Error loading database. Please check railway.db file.';
+                }
+            }
+
+            async processDatabaseData(SQL, dbData) {
+                const db = new SQL.Database(dbData);
+
+                // Load stations
+                const stationsResult = db.exec("SELECT name, longitude, latitude FROM stations WHERE longitude IS NOT NULL AND latitude IS NOT NULL");
+                if (stationsResult.length > 0) {
+                    this.stationsData = stationsResult[0].values.map(row => ({
+                        PlNamn: row[0],
+                        Longitud: parseFloat(row[1]),
+                        Latitud: parseFloat(row[2])
+                    }));
+                }
+
+                // Load links - get all columns dynamically
+                const linksResult = db.exec("SELECT * FROM links WHERE coordinates IS NOT NULL");
+                if (linksResult.length > 0) {
+                    const columns = linksResult[0].columns;
+                    this.linksData = linksResult[0].values.map(row => {
+                        const link = {};
+                        columns.forEach((col, idx) => {
+                            link[col] = row[idx];
+                        });
+                        return link;
+                    }).filter(row => row.coordinates);
+                }
+
+                this.filteredLinks = [...this.linksData];
+                db.close();
+
+                this.populateOwnerFilter();
+                this.renderStations();
+                this.renderLinks();
+                document.getElementById('loading').style.display = 'none';
+            }            populateOwnerFilter() {
+                this.owners = [...new Set(this.linksData.map(link => link.owner).filter(Boolean))].sort();
+                const select = document.getElementById('ownerFilter');
+                
+                this.owners.forEach(owner => {
+                    const option = document.createElement('option');
+                    option.value = owner;
+                    option.textContent = owner;
+                    select.appendChild(option);
+                });
+            }
+
+            // Fuzzy string matching for station search
+            fuzzyMatch(str1, str2, threshold = 0.6) {
+                const longer = str1.length > str2.length ? str1 : str2;
+                const shorter = str1.length > str2.length ? str2 : str1;
+                const editDistance = this.levenshteinDistance(longer.toLowerCase(), shorter.toLowerCase());
+                return (longer.length - editDistance) / longer.length >= threshold;
+            }
+
+            levenshteinDistance(str1, str2) {
+                const matrix = [];
+                for (let i = 0; i <= str2.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= str1.length; j++) {
+                    matrix[0][j] = j;
+                }
+                for (let i = 1; i <= str2.length; i++) {
+                    for (let j = 1; j <= str1.length; j++) {
+                        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                return matrix[str2.length][str1.length];
+            }
+
+            searchStations(query) {
+                const suggestionsDiv = document.getElementById('searchSuggestions');
+                
+                if (!query.trim()) {
+                    suggestionsDiv.innerHTML = '';
+                    return;
+                }
+
+                const matches = this.stationsData
+                    .filter(station => 
+                        station.PlNamn && (
+                            station.PlNamn.toLowerCase().includes(query.toLowerCase()) ||
+                            this.fuzzyMatch(station.PlNamn, query, 0.4)
+                        )
+                    )
+                    .slice(0, 5);
+
+                if (matches.length === 0) {
+                    suggestionsDiv.innerHTML = '<div class="suggestion-item">No stations found</div>';
+                    return;
+                }
+
+                suggestionsDiv.innerHTML = matches.map(station => 
+                    `<div class="suggestion-item" onclick="app.zoomToStation('${station.PlNamn}', ${station.Latitud}, ${station.Longitud})">
+                        ${station.PlNamn}
+                    </div>`
+                ).join('');
+            }
+
+            zoomToStation(name, lat, lon) {
+                this.map.setView([lat, lon], 12);
+                document.getElementById('stationSearch').value = name;
+                document.getElementById('searchSuggestions').innerHTML = '';
+                
+                // Highlight the station temporarily
+                const highlight = L.circleMarker([lat, lon], {
+                    radius: 15,
+                    fillColor: '#ff0066',
+                    color: '#ff0066',
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).addTo(this.map);
+
+                setTimeout(() => {
+                    this.map.removeLayer(highlight);
+                }, 3000);
+            }
+
+            toggleTheme(isLight) {
+                this.isDarkTheme = !isLight;
+                document.body.classList.toggle('light-theme', isLight);
+                this.setMapTheme();
+                this.renderStations();
+                this.renderLinks();
+            }
+
+            renderStations() {
+                this.stationMarkers.clearLayers();
+                this.stationsData.forEach(station => {
+                    const marker = L.circleMarker([station.Latitud, station.Longitud], {
+                        radius: 6,
+                        fillColor: '#ffd700',
+                        color: '#ff6b35',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).bindPopup(`
+                        <div style="color: white;">
+                            <strong>${station.PlNamn || 'Unknown Station'}</strong><br>
+                            <small>Lat: ${station.Latitud.toFixed(4)}, Lon: ${station.Longitud.toFixed(4)}</small>
+                        </div>
+                    `);
+                    this.stationMarkers.addLayer(marker);
+                });
+            }            renderLinks() {
+                // Clear existing links
+                this.linkLayers.forEach(layer => this.map.removeLayer(layer));
+                this.linkLayers = [];
+
+                // Choose color based on theme
+                const linkColor = this.isDarkTheme ? '#00ff88' : '#2c3e50'; // Green for dark, dark blue-gray for light
+                
+                this.filteredLinks.forEach((link, index) => {
+                    try {
+                        const coords = JSON.parse(link.coordinates);
+                        if (link.geometry_type === 'LineString' && Array.isArray(coords) && coords.length > 1) {
+                            const leafletCoords = coords.map(coord => [coord[1], coord[0]]);
+                            
+                            const polyline = L.polyline(leafletCoords, {
+                                color: linkColor,
+                                weight: 4,
+                                opacity: 0.8,
+                                smoothFactor: 1,
+                                linkId: link.localId
+                            });
+
+                            polyline.bindPopup(`
+                                <div style="color: white; font-size: 13px;">
+                                    <strong>Link ID:</strong> ${link.localId || 'N/A'}<br>
+                                    <strong>Section:</strong> ${link.lgmNamn || 'N/A'}<br>
+                                    <strong>Track Type:</strong> ${link.spTyp || 'N/A'}<br>
+                                    <strong>Owner:</strong> ${link.owner || 'N/A'}<br>
+                                    <strong>Length:</strong> ${link.lnkLangd || 'N/A'} m<br>
+                                    <button class="popup-button" onclick="app.selectLink('${link.localId}')">
+                                        Show Details
+                                    </button>
+                                </div>
+                            `);
+
+                            polyline.on('mouseover', () => {
+                                polyline.setStyle({
+                                    weight: 6,
+                                    opacity: 1
+                                });
+                            });
+
+                            polyline.on('mouseout', () => {
+                                if (this.selectedLink !== link.localId) {
+                                    polyline.setStyle({
+                                        weight: 4,
+                                        opacity: 0.8
+                                    });
+                                }
+                            });
+
+                            this.map.addLayer(polyline);
+                            this.linkLayers.push(polyline);
+                        }
+                    } catch (error) {
+                        console.warn('Invalid coordinates for link:', link.localId);
+                    }
+                });
+            }
+
+            selectLink(linkId) {
+                const link = this.linksData.find(l => l.localId === linkId);
+                if (link) {
+                    this.selectedLink = linkId;
+                    this.showLinkDetails(link);
+                    
+                    // Highlight selected link
+                    this.linkLayers.forEach(layer => {
+                        if (layer.options.linkId === linkId) {
+                            layer.setStyle({
+                                weight: 8,
+                                opacity: 1,
+                                color: '#ff0066'
+                            });
+                        } else {
+                            layer.setStyle({
+                                weight: 4,
+                                opacity: 0.8
+                            });
+                        }
+                    });
+                }
+            }
+
+            showLinkDetails(link) {
+                const detailsDiv = document.getElementById('linkDetails');
+                const contentDiv = document.getElementById('linkDetailsContent');
+                
+                const details = [
+                    { label: 'Link ID', value: link.localId },
+                    { label: 'Section', value: link.lgmNamn },
+                    { label: 'Track Type', value: link.spTyp },
+                    { label: 'Bandel', value: link.bdl_namn },
+                    { label: 'Owner', value: link.owner },
+                    { label: 'Length', value: `${link.lnkLangd || 'N/A'} m` },
+                    { label: 'From km', value: link.mFr },
+                    { label: 'To km', value: link.mTi }
+                ];
+
+                contentDiv.innerHTML = details.map(item => `
+                    <div class="detail-item">
+                        <span class="detail-label">${item.label}:</span>
+                        <span class="detail-value">${item.value || 'N/A'}</span>
+                    </div>
+                `).join('');
+
+                detailsDiv.style.display = 'block';
+                detailsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }            filterLinks(owner) {
+                if (owner === 'all') {
+                    this.filteredLinks = [...this.linksData];
+                    this.hideFilteredSections();
+                } else {
+                    this.filteredLinks = this.linksData.filter(link => link.owner === owner);
+                    this.showFilteredSections(owner);
+                }
+                
+                this.renderLinks();
+                this.updateStats();
+            }            showFilteredSections(owner) {
+                const sectionsDiv = document.getElementById('filteredSections');
+                const sectionsListDiv = document.getElementById('sectionsList');
+                
+                // Group filtered links by section name
+                const sectionGroups = {};
+                this.filteredLinks.forEach(link => {
+                    const sectionName = link.lgmNamn || 'Unknown Section';
+                    if (!sectionGroups[sectionName]) {
+                        sectionGroups[sectionName] = [];
+                    }
+                    sectionGroups[sectionName].push(link);
+                });
+
+                // Sort sections by name
+                const sortedSections = Object.keys(sectionGroups).sort();
+
+                // Update header with count
+                const headerElement = sectionsDiv.querySelector('h3');
+                headerElement.textContent = `Railway Sections (${sortedSections.length})`;
+
+                if (sortedSections.length === 0) {
+                    sectionsListDiv.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 20px;">No sections found for this owner</div>';
+                } else {
+                    sectionsListDiv.innerHTML = sortedSections.map(sectionName => {
+                        const links = sectionGroups[sectionName];
+                        const totalLength = links.reduce((sum, link) => sum + (parseFloat(link.lnkLangd) || 0), 0);
+                        const lengthKm = (totalLength / 1000).toFixed(1);
+                        
+                        return `
+                            <div class="section-item" onclick="app.zoomToSection('${sectionName.replace(/'/g, "\\'")}')">
+                                <div class="section-name">${sectionName}</div>
+                                <div class="section-info">
+                                    <span>${links.length} link${links.length !== 1 ? 's' : ''}</span>
+                                    <span class="section-length">${lengthKm} km</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                sectionsDiv.style.display = 'block';
+                sectionsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }            hideFilteredSections() {
+                const sectionsDiv = document.getElementById('filteredSections');
+                const headerElement = sectionsDiv.querySelector('h3');
+                
+                // Reset header text
+                headerElement.textContent = 'Railway Sections';
+                sectionsDiv.style.display = 'none';
+            }
+
+            zoomToSection(sectionName) {
+                // Find all links in this section
+                const sectionLinks = this.filteredLinks.filter(link => 
+                    (link.lgmNamn || 'Unknown Section') === sectionName
+                );
+
+                if (sectionLinks.length === 0) return;
+
+                // Get all coordinates from section links
+                const allCoords = [];
+                sectionLinks.forEach(link => {
+                    try {
+                        const coords = JSON.parse(link.coordinates);
+                        if (link.geometry_type === 'LineString' && Array.isArray(coords)) {
+                            coords.forEach(coord => {
+                                allCoords.push([coord[1], coord[0]]); // Leaflet uses [lat, lon]
+                            });
+                        }
+                    } catch (error) {
+                        console.warn('Invalid coordinates for link:', link.localId);
+                    }
+                });
+
+                if (allCoords.length > 0) {
+                    // Calculate bounds
+                    const bounds = L.latLngBounds(allCoords);
+                    this.map.fitBounds(bounds, { padding: [20, 20] });
+
+                    // Temporarily highlight the section
+                    this.highlightSection(sectionLinks);
+                }
+            }
+
+            highlightSection(sectionLinks) {
+                const highlightLayers = [];
+                
+                sectionLinks.forEach(link => {
+                    try {
+                        const coords = JSON.parse(link.coordinates);
+                        if (link.geometry_type === 'LineString' && Array.isArray(coords) && coords.length > 1) {
+                            const leafletCoords = coords.map(coord => [coord[1], coord[0]]);
+                            
+                            const highlightLine = L.polyline(leafletCoords, {
+                                color: '#ff0066',
+                                weight: 8,
+                                opacity: 1,
+                                smoothFactor: 1
+                            });
+
+                            this.map.addLayer(highlightLine);
+                            highlightLayers.push(highlightLine);
+                        }
+                    } catch (error) {
+                        console.warn('Invalid coordinates for highlight:', link.localId);
+                    }
+                });
+
+                // Remove highlights after 3 seconds
+                setTimeout(() => {
+                    highlightLayers.forEach(layer => {
+                        this.map.removeLayer(layer);
+                    });
+                }, 3000);
+            }
+
+            toggleOwnerSearch() {
+                const searchInput = document.getElementById('ownerSearchInput');
+                const selectElement = document.getElementById('ownerFilter');
+                const toggleBtn = document.getElementById('ownerSearchToggle');
+                
+                this.isOwnerSearchMode = !this.isOwnerSearchMode;
+                  if (this.isOwnerSearchMode) {
+                    // Switch to search mode
+                    selectElement.style.display = 'none';
+                    searchInput.style.display = 'block';
+                    searchInput.focus();
+                    toggleBtn.textContent = '📋';
+                    toggleBtn.title = 'Switch to dropdown mode';
+                    
+                    // Show all owners initially
+                    this.searchOwners('');
+                } else {
+                    // Switch to dropdown mode
+                    searchInput.style.display = 'none';
+                    selectElement.style.display = 'block';
+                    document.getElementById('ownerSuggestions').style.display = 'none';
+                    toggleBtn.textContent = '🔍';
+                    toggleBtn.title = 'Switch to search mode';
+                    this.selectedOwnerIndex = -1;
+                }
+            }
+
+            searchOwners(query) {
+                const suggestionsDiv = document.getElementById('ownerSuggestions');
+                
+                if (!query.trim()) {
+                    this.filteredOwners = ['all', ...this.owners];
+                } else {
+                    const lowerQuery = query.toLowerCase();
+                    this.filteredOwners = [
+                        'all',
+                        ...this.owners.filter(owner => 
+                            owner.toLowerCase().includes(lowerQuery) ||
+                            this.fuzzyMatch(owner, query, 0.3)
+                        )
+                    ];
+                }
+
+                this.selectedOwnerIndex = -1;
+                this.renderOwnerSuggestions();
+                suggestionsDiv.style.display = 'block';
+            }
+
+            renderOwnerSuggestions() {
+                const suggestionsDiv = document.getElementById('ownerSuggestions');
+                
+                if (this.filteredOwners.length === 0) {
+                    suggestionsDiv.innerHTML = '<div class="owner-suggestion-item">No owners found</div>';
+                    return;
+                }
+
+                suggestionsDiv.innerHTML = this.filteredOwners.map((owner, index) => {
+                    const displayName = owner === 'all' ? 'All Owners' : owner;
+                    const highlightClass = index === this.selectedOwnerIndex ? 'highlighted' : '';
+                    return `
+                        <div class="owner-suggestion-item ${highlightClass}" 
+                             onclick="app.selectOwner('${owner.replace(/'/g, "\\'")}')">
+                            ${displayName}
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            selectOwner(owner) {
+                const searchInput = document.getElementById('ownerSearchInput');
+                const selectElement = document.getElementById('ownerFilter');
+                const suggestionsDiv = document.getElementById('ownerSuggestions');
+                
+                // Update the display
+                if (this.isOwnerSearchMode) {
+                    searchInput.value = owner === 'all' ? 'All Owners' : owner;
+                } else {
+                    selectElement.value = owner;
+                }
+                
+                // Hide suggestions
+                suggestionsDiv.style.display = 'none';
+                this.selectedOwnerIndex = -1;
+                
+                // Apply filter
+                this.filterLinks(owner);
+            }
+
+            handleOwnerSearchKeydown(e) {
+                const suggestionsDiv = document.getElementById('ownerSuggestions');
+                
+                if (suggestionsDiv.style.display === 'none') return;
+                
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.selectedOwnerIndex = Math.min(this.selectedOwnerIndex + 1, this.filteredOwners.length - 1);
+                        this.renderOwnerSuggestions();
+                        break;
+                        
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.selectedOwnerIndex = Math.max(this.selectedOwnerIndex - 1, 0);
+                        this.renderOwnerSuggestions();
+                        break;
+                        
+                    case 'Enter':
+                        e.preventDefault();
+                        if (this.selectedOwnerIndex >= 0 && this.selectedOwnerIndex < this.filteredOwners.length) {
+                            this.selectOwner(this.filteredOwners[this.selectedOwnerIndex]);
+                        }
+                        break;
+                        
+                    case 'Escape':
+                        suggestionsDiv.style.display = 'none';
+                        this.selectedOwnerIndex = -1;
+                        break;
+                }
+            }
+
+            updateStats() {
+                const totalLength = this.calculateTotalLength();
+                const lengthKm = (totalLength / 1000).toFixed(1);
+                
+                document.getElementById('stationCount').textContent = this.stationsData.length.toLocaleString();
+                document.getElementById('filteredLinkCount').textContent = this.filteredLinks.length.toLocaleString();
+                document.getElementById('totalLength').textContent = lengthKm + ' km';
+                
+                // Update length color based on threshold - flash if less than 10km
+                const lengthElement = document.getElementById('totalLength');
+                if (totalLength < 10000) {
+                    lengthElement.style.color = '#ff3366';
+                    lengthElement.style.animation = 'flash 1.5s infinite';
+                } else {
+                    lengthElement.style.color = this.isDarkTheme ? '#ffd700' : '#2980b9';
+                    lengthElement.style.animation = 'none';
+                }
+            }
+
+            calculateTotalLength() {
+                return this.filteredLinks.reduce((total, link) => {
+                    const length = parseFloat(link.lnkLangd) || 0;
+                    return total + length;
+                }, 0);
+            }
+
+            toggleSidebar() {
+                const sidebar = document.getElementById('sidebar');
+                const toggle = document.getElementById('toggleIcon');
+                
+                sidebar.classList.toggle('collapsed');
+                toggle.textContent = sidebar.classList.contains('collapsed') ? '›' : '‹';
+            }
+
+            hideLoading() {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Initialize app when page loads
+        let app;
+        window.addEventListener('load', () => {
+            app = new RailwayApp();
+        });
+    </script>
+</body>
+</html>
