@@ -902,28 +902,34 @@
 
             searchStations(query) {
                 const suggestionsDiv = document.getElementById('searchSuggestions');
-                
                 if (!query.trim()) {
                     suggestionsDiv.innerHTML = '';
                     return;
                 }
-
-                const matches = this.stationsData
-                    .filter(station => 
-                        station.PlNamn && (
-                            station.PlNamn.toLowerCase().includes(query.toLowerCase()) ||
-                            this.fuzzyMatch(station.PlNamn, query, 0.4)
-                        )
-                    )
-                    .slice(0, 5);
-
+                // Normalize for case and accents
+                const normalize = str => str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+                const normQuery = normalize(query);
+                // Substring matches first
+                let matches = this.stationsData.filter(station => {
+                    const name = station.PlNamn || '';
+                    return normalize(name).includes(normQuery);
+                });
+                // If not enough, add fuzzy matches (not already in matches)
+                if (matches.length < 5) {
+                    const fuzzy = this.stationsData.filter(station => {
+                        const name = station.PlNamn || '';
+                        return !matches.includes(station) && this.fuzzyMatch(normalize(name), normQuery, 0.4);
+                    });
+                    matches = matches.concat(fuzzy);
+                }
+                // Remove duplicates and limit
+                matches = Array.from(new Set(matches)).slice(0, 8);
                 if (matches.length === 0) {
                     suggestionsDiv.innerHTML = '<div class="suggestion-item">No stations found</div>';
                     return;
                 }
-
                 suggestionsDiv.innerHTML = matches.map(station => 
-                    `<div class="suggestion-item" onclick="app.zoomToStation('${station.PlNamn}', ${station.Latitud}, ${station.Longitud})">
+                    `<div class="suggestion-item" onclick="app.zoomToStation('${station.PlNamn.replace(/'/g, "\\'")}', ${station.Latitud}, ${station.Longitud})">
                         ${station.PlNamn}
                     </div>`
                 ).join('');
